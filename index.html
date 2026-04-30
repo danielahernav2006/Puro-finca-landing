@@ -187,7 +187,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   inset: 0;
   border-radius: 50%;
   background: var(--green-mid);
-  animation: pulse 2s ease-out infinite;
+  animation: pulse 4s ease-out infinite;
 }
 @keyframes pulse {
   0% { transform: scale(1); opacity: 0.6; }
@@ -368,7 +368,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .marquee-track {
   display: flex;
   gap: 4rem;
-  animation: scroll 35s linear infinite;
+  animation: scroll 70s linear infinite;
   white-space: nowrap;
   width: max-content;
 }
@@ -1123,6 +1123,32 @@ section.tight { padding: 5rem 0; }
   }
   .reveal { opacity: 1; transform: none; }
 }
+
+
+/* =========================================================
+   MODO PRUEBA: APAGAR TODAS LAS ANIMACIONES
+   ========================================================= */
+*,
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+#heroCanvas {
+  display: none !important;
+}
+
+.reveal {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.marquee-track {
+  animation: scroll 95s linear infinite !important;
+}
+
+
 </style>
 </head>
 <body>
@@ -1663,8 +1689,8 @@ document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
   const ctx = canvas.getContext('2d');
 
   // Rayos más anchos, tenues, cálidos — simula luz solar filtrándose
-  const RAYS = 18;
-  const BASE_SPEED = 0.00010; // rotación muy lenta, casi imperceptible
+  const RAYS = 10;
+  //const BASE_SPEED = 0.00010; // rotación muy lenta, casi imperceptible
 
   const rays = Array.from({ length: RAYS }, (_, i) => ({
     angle:      (i / RAYS) * Math.PI * 2,
@@ -1672,7 +1698,8 @@ document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
     alpha:      0.12 + Math.random() * 0.18,   // muy tenues
     phase:      Math.random() * Math.PI * 2,
     pulseAmp:   0.04 + Math.random() * 0.08,   // respiración mínima
-    pulseSpeed: 0.00015 + Math.random() * 0.00020, // muy lenta
+    //pulseSpeed: 0.00015 + Math.random() * 0.00020, // muy lenta
+    pulseSpeed: 0.00008 + Math.random() * 0.00008,
   }));
 
   let focalX, focalY;
@@ -1703,81 +1730,94 @@ document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
     }
   });
 
-  let t = 0;
+  let startTime = null;
+let lastFrameTime = 0;
+const FPS = 24;
+const FRAME_INTERVAL = 1000 / FPS;
 
-  function draw() {
-    t++;
+function draw(currentTime) {
+  if (!startTime) startTime = currentTime;
 
-    // Lerp ultra suave
-    focalX += (targetFX - focalX) * 0.012;
-    focalY += (targetFY - focalY) * 0.012;
-
-    const W = canvas.width;
-    const H = canvas.height;
-    const diag = Math.sqrt(W * W + H * H) * 1.15;
-
-    // Fondo completamente transparente — la crema del body se ve abajo
-    ctx.clearRect(0, 0, W, H);
-
-    // Halo solar en el punto focal — warm golden-green, muy tenue
-    const halo = ctx.createRadialGradient(focalX, focalY, 0, focalX, focalY, H * 0.55);
-    halo.addColorStop(0,    'rgba(210, 240, 180, 0.38)');
-    halo.addColorStop(0.18, 'rgba(160, 220, 100, 0.20)');
-    halo.addColorStop(0.5,  'rgba( 80, 160,  60, 0.08)');
-    halo.addColorStop(1,    'rgba(  0,   0,   0, 0.00)');
-    ctx.fillStyle = halo;
-    ctx.fillRect(0, 0, W, H);
-
-    // Rotación global muy lenta
-    const globalRot = t * BASE_SPEED * Math.PI * 2;
-
-    rays.forEach((ray) => {
-      const angle = ray.angle + globalRot;
-      const pulse = ray.alpha + ray.pulseAmp * Math.sin(t * ray.pulseSpeed * Math.PI * 2 + ray.phase);
-      const alpha = Math.max(0, Math.min(0.38, pulse));
-
-      const endX  = focalX + Math.cos(angle) * diag;
-      const endY  = focalY + Math.sin(angle) * diag;
-      const leftX = focalX + Math.cos(angle - ray.width) * diag;
-      const leftY = focalY + Math.sin(angle - ray.width) * diag;
-      const rightX= focalX + Math.cos(angle + ray.width) * diag;
-      const rightY= focalY + Math.sin(angle + ray.width) * diag;
-
-      // Paleta cálida: verde-dorado-lima, muy soft
-      const grad = ctx.createLinearGradient(focalX, focalY, endX, endY);
-      grad.addColorStop(0,    `rgba(220, 250, 180, ${alpha * 0.90})`);
-      grad.addColorStop(0.12, `rgba(140, 210, 100, ${alpha * 0.65})`);
-      grad.addColorStop(0.40, `rgba( 80, 170,  60, ${alpha * 0.28})`);
-      grad.addColorStop(0.75, `rgba( 40, 100,  30, ${alpha * 0.08})`);
-      grad.addColorStop(1,    'rgba(0, 0, 0, 0)');
-
-      ctx.save();
-      ctx.globalCompositeOperation = 'multiply'; // se mezcla con el fondo crema
-      ctx.beginPath();
-      ctx.moveTo(focalX, focalY);
-      ctx.lineTo(leftX, leftY);
-      ctx.lineTo(rightX, rightY);
-      ctx.closePath();
-      ctx.fillStyle = grad;
-      ctx.fill();
-      ctx.restore();
-    });
-
-    // Destello focal — pequeño, cálido, apenas visible
-    const flare = ctx.createRadialGradient(focalX, focalY, 0, focalX, focalY, 55);
-    const fp = 0.28 + 0.10 * Math.sin(t * 0.00080 * Math.PI * 2);
-    flare.addColorStop(0,   `rgba(240, 255, 210, ${fp})`);
-    flare.addColorStop(0.4, `rgba(160, 230, 120, ${fp * 0.4})`);
-    flare.addColorStop(1,   'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = flare;
-    ctx.beginPath();
-    ctx.arc(focalX, focalY, 55, 0, Math.PI * 2);
-    ctx.fill();
-
+  if (currentTime - lastFrameTime < FRAME_INTERVAL) {
     requestAnimationFrame(draw);
+    return;
   }
 
-  draw();
+  lastFrameTime = currentTime;
+
+  const elapsed = currentTime - startTime;
+
+  // Lerp ultra suave
+  focalX += (targetFX - focalX) * 0.008;
+  focalY += (targetFY - focalY) * 0.008;
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const diag = Math.sqrt(W * W + H * H) * 1.15;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const halo = ctx.createRadialGradient(focalX, focalY, 0, focalX, focalY, H * 0.55);
+  halo.addColorStop(0,    'rgba(210, 240, 180, 0.28)');
+  halo.addColorStop(0.18, 'rgba(160, 220, 100, 0.14)');
+  halo.addColorStop(0.5,  'rgba(80, 160, 60, 0.05)');
+  halo.addColorStop(1,    'rgba(0, 0, 0, 0.00)');
+  ctx.fillStyle = halo;
+  ctx.fillRect(0, 0, W, H);
+
+  // Rotación basada en tiempo real, no en frames
+  const globalRot = elapsed * 0.000015;
+
+  rays.forEach((ray) => {
+    const angle = ray.angle + globalRot;
+
+    const pulse =
+      ray.alpha +
+      ray.pulseAmp * Math.sin(elapsed * ray.pulseSpeed + ray.phase);
+
+    const alpha = Math.max(0, Math.min(0.24, pulse));
+
+    const endX = focalX + Math.cos(angle) * diag;
+    const endY = focalY + Math.sin(angle) * diag;
+    const leftX = focalX + Math.cos(angle - ray.width) * diag;
+    const leftY = focalY + Math.sin(angle - ray.width) * diag;
+    const rightX = focalX + Math.cos(angle + ray.width) * diag;
+    const rightY = focalY + Math.sin(angle + ray.width) * diag;
+
+    const grad = ctx.createLinearGradient(focalX, focalY, endX, endY);
+    grad.addColorStop(0,    `rgba(220, 250, 180, ${alpha * 0.75})`);
+    grad.addColorStop(0.12, `rgba(140, 210, 100, ${alpha * 0.45})`);
+    grad.addColorStop(0.40, `rgba(80, 170, 60, ${alpha * 0.18})`);
+    grad.addColorStop(0.75, `rgba(40, 100, 30, ${alpha * 0.04})`);
+    grad.addColorStop(1,    'rgba(0, 0, 0, 0)');
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.beginPath();
+    ctx.moveTo(focalX, focalY);
+    ctx.lineTo(leftX, leftY);
+    ctx.lineTo(rightX, rightY);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+  });
+
+  const flare = ctx.createRadialGradient(focalX, focalY, 0, focalX, focalY, 55);
+  const fp = 0.18 + 0.05 * Math.sin(elapsed * 0.00035);
+  flare.addColorStop(0,   `rgba(240, 255, 210, ${fp})`);
+  flare.addColorStop(0.4, `rgba(160, 230, 120, ${fp * 0.35})`);
+  flare.addColorStop(1,   'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = flare;
+  ctx.beginPath();
+  ctx.arc(focalX, focalY, 55, 0, Math.PI * 2);
+  ctx.fill();
+
+  requestAnimationFrame(draw);
+}
+
+requestAnimationFrame(draw);
+
 })();
 document.querySelectorAll('.service-item').forEach((item) => {
   item.addEventListener('click', () => {
